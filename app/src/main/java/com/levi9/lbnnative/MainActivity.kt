@@ -8,9 +8,11 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.location.Location
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
+import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
@@ -19,6 +21,11 @@ import com.google.android.gms.location.Geofence
 import com.google.android.gms.location.GeofencingClient
 import com.google.android.gms.location.GeofencingRequest
 import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
+import com.google.android.gms.tasks.CancellationToken
+import com.google.android.gms.tasks.CancellationTokenSource
+import com.google.android.gms.tasks.OnTokenCanceledListener
+import com.levi9.lbnnative.databinding.ActivityMainBinding
 import com.levi9.lbnnative.receiver.GeofenceBroadcastReceiver
 import com.levi9.lbnnative.receiver.GeofenceBroadcastReceiver.Companion.NOTIFICATION_CHANNEL_DESCRIPTION
 import com.levi9.lbnnative.receiver.GeofenceBroadcastReceiver.Companion.NOTIFICATION_CHANNEL_ID
@@ -35,6 +42,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var pendingIntent: PendingIntent
 
     private lateinit var fusedLocationClient: FusedLocationProviderClient
+
+    private lateinit var binding: ActivityMainBinding
 
     private val requestFineLocationPermissionLauncher =
         registerForActivityResult(
@@ -71,7 +80,9 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
+        binding = ActivityMainBinding.inflate(layoutInflater)
+        val view = binding.root
+        setContentView(view)
 
         createNotificationChannel()
 
@@ -91,6 +102,7 @@ class MainActivity : AppCompatActivity() {
         geofencingClient.addGeofences(geofencingRequest, pendingIntent).run {
             addOnSuccessListener {
                 Log.e("===", "Geofence list registered successfully")
+                setElementClickListener()
             }
             addOnFailureListener {
                 Log.e("===", "Failed to add geofence list")
@@ -178,6 +190,32 @@ class MainActivity : AppCompatActivity() {
                     Manifest.permission.ACCESS_FINE_LOCATION
                 )
             }
+        }
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun setElementClickListener() {
+        binding.tvGetLocation.setOnClickListener {
+            fusedLocationClient.getCurrentLocation(
+                Priority.PRIORITY_HIGH_ACCURACY,
+                object : CancellationToken() {
+                    override fun onCanceledRequested(p0: OnTokenCanceledListener) =
+                        CancellationTokenSource().token
+
+                    override fun isCancellationRequested() = false
+                })
+                .addOnSuccessListener { location: Location? ->
+                    if (location == null)
+                        Toast.makeText(
+                            this@MainActivity,
+                            "Cannot get location.",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    else {
+                        Toast.makeText(this@MainActivity, "Fetched location.", Toast.LENGTH_SHORT)
+                            .show()
+                    }
+                }
         }
     }
 }
