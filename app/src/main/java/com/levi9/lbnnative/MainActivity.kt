@@ -1,6 +1,7 @@
 package com.levi9.lbnnative
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -10,18 +11,16 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.Geofence
 import com.google.android.gms.location.GeofencingClient
 import com.google.android.gms.location.GeofencingRequest
-import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationServices
-import com.google.android.gms.location.Priority
-import com.google.android.gms.tasks.CancellationToken
-import com.google.android.gms.tasks.OnTokenCanceledListener
 import com.levi9.lbnnative.receiver.GeofenceBroadcastReceiver
+import com.levi9.lbnnative.receiver.GeofenceBroadcastReceiver.Companion.NOTIFICATION_CHANNEL_DESCRIPTION
 import com.levi9.lbnnative.receiver.GeofenceBroadcastReceiver.Companion.NOTIFICATION_CHANNEL_ID
 import java.util.UUID
 
@@ -37,22 +36,69 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var fusedLocationClient: FusedLocationProviderClient
 
+    private val requestFineLocationPermissionLauncher =
+        registerForActivityResult(
+            ActivityResultContracts.RequestPermission()
+        ) { isGranted: Boolean ->
+            if (isGranted) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    requestBackgroundLocationPermissionLauncher.launch(
+                        Manifest.permission.ACCESS_BACKGROUND_LOCATION
+                    )
+                } else {
+                    startListeningForGeoFences()
+                }
+            }
+        }
+
+    private val requestBackgroundLocationPermissionLauncher =
+        registerForActivityResult(
+            ActivityResultContracts.RequestPermission()
+        ) { isGranted: Boolean ->
+            if (isGranted) {
+                startListeningForGeoFences()
+            }
+        }
+
+    private val requestPostNotificationsPermissionLauncher =
+        registerForActivityResult(
+            ActivityResultContracts.RequestPermission()
+        ) { isGranted: Boolean ->
+            if (isGranted) {
+                handleLocationPermission()
+            }
+        }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
-
         createNotificationChannel()
 
-        //#################################################
-        // 1. fetching geofence client from the OS
-        //#################################################
+        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
         geofencingClient = LocationServices.getGeofencingClient(this)
 
-        //#################################################
-        // 2. creating geofence list
-        //#################################################
+        fillGeofenceList()
+
+        geofencingRequest = retrieveGeofencingRequest()
+        pendingIntent = getGeofencePendingIntent()
+
+        handleNotificationsPermission()
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun startListeningForGeoFences() {
+        geofencingClient.addGeofences(geofencingRequest, pendingIntent).run {
+            addOnSuccessListener {
+                Log.e("===", "Geofence list registered successfully")
+            }
+            addOnFailureListener {
+                Log.e("===", "Failed to add geofence list")
+            }
+        }
+    }
+
+    private fun fillGeofenceList() {
         geofenceList.add(
             Geofence.Builder()
                 .setRequestId(UUID.randomUUID().toString())
@@ -65,36 +111,6 @@ class MainActivity : AppCompatActivity() {
                 .setTransitionTypes(Geofence.GEOFENCE_TRANSITION_ENTER or Geofence.GEOFENCE_TRANSITION_EXIT)
                 .build()
         )
-
-        //#################################################
-        // 3. creating geofencing request
-        //#################################################
-        geofencingRequest = retrieveGeofencingRequest()
-
-        //#################################################
-        // 4. creating pending intent with BroadcastReceiver
-        //#################################################
-        pendingIntent = getGeofencePendingIntent()
-
-        //#################################################
-        // 5. final step, add geofence list to geofencing client
-        //#################################################
-        if (ActivityCompat.checkSelfPermission(
-                this,
-                Manifest.permission.ACCESS_FINE_LOCATION
-            ) != PackageManager.PERMISSION_GRANTED
-        ) {
-            Log.e("===", "Permission not granted")
-            return
-        }
-        geofencingClient.addGeofences(geofencingRequest, pendingIntent).run {
-            addOnSuccessListener {
-                Log.e("===", "Geofence list registered successfully")
-            }
-            addOnFailureListener {
-                Log.e("===", "Failed to add geofence list")
-            }
-        }
     }
 
     private fun retrieveGeofencingRequest(): GeofencingRequest {
@@ -106,16 +122,14 @@ class MainActivity : AppCompatActivity() {
 
     private fun getGeofencePendingIntent(): PendingIntent {
         val intent = Intent(this, GeofenceBroadcastReceiver::class.java)
-        return PendingIntent.getBroadcast(this, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT)
+        return PendingIntent.getBroadcast(this, 0, intent, PendingIntent.FLAG_MUTABLE)
     }
 
     private fun createNotificationChannel() {
-        // Create the NotificationChannel, but only on API 26+ because
-        // the NotificationChannel class is new and not in the support library
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val name = NOTIFICATION_CHANNEL_ID
-            val descriptionText = "displays lbn notifications"
-            val importance = NotificationManager.IMPORTANCE_DEFAULT
+            val descriptionText = NOTIFICATION_CHANNEL_DESCRIPTION
+            val importance = NotificationManager.IMPORTANCE_HIGH
             val channel = NotificationChannel(NOTIFICATION_CHANNEL_ID, name, importance).apply {
                 description = descriptionText
             }
@@ -123,6 +137,47 @@ class MainActivity : AppCompatActivity() {
             val notificationManager: NotificationManager =
                 getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             notificationManager.createNotificationChannel(channel)
+        }
+    }
+
+    private fun handleNotificationsPermission() {
+        when (PackageManager.PERMISSION_GRANTED) {
+            ContextCompat.checkSelfPermission(
+                this, Manifest.permission.POST_NOTIFICATIONS
+            ) -> {
+                handleLocationPermission()
+            }
+
+            else -> {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    requestPostNotificationsPermissionLauncher.launch(
+                        Manifest.permission.POST_NOTIFICATIONS
+                    )
+                }
+            }
+        }
+    }
+
+    private fun handleLocationPermission() {
+        when (PackageManager.PERMISSION_GRANTED) {
+            ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            ) -> {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    requestBackgroundLocationPermissionLauncher.launch(
+                        Manifest.permission.ACCESS_BACKGROUND_LOCATION
+                    )
+                } else {
+                    startListeningForGeoFences()
+                }
+            }
+
+            else -> {
+                requestFineLocationPermissionLauncher.launch(
+                    Manifest.permission.ACCESS_FINE_LOCATION
+                )
+            }
         }
     }
 }

@@ -11,7 +11,6 @@ import android.util.Log
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
-import com.google.android.gms.location.Geofence
 import com.google.android.gms.location.Geofence.GEOFENCE_TRANSITION_ENTER
 import com.google.android.gms.location.Geofence.GEOFENCE_TRANSITION_EXIT
 import com.google.android.gms.location.GeofenceStatusCodes
@@ -62,7 +61,7 @@ class GeofenceBroadcastReceiver : BroadcastReceiver() {
             context,
             0,
             notificationIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT
+            PendingIntent.FLAG_MUTABLE
         )
         val builder = NotificationCompat.Builder(context, NOTIFICATION_CHANNEL_ID)
         builder.setColor(Notification.COLOR_DEFAULT)
@@ -86,6 +85,7 @@ class GeofenceBroadcastReceiver : BroadcastReceiver() {
     }
 
     companion object {
-        const val NOTIFICATION_CHANNEL_ID = "lbn channel"
+        const val NOTIFICATION_CHANNEL_ID = "Lbn notifications"
+        const val NOTIFICATION_CHANNEL_DESCRIPTION = "Displays lbn notifications"
     }
 }
