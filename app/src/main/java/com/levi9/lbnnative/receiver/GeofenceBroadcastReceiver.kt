@@ -2,7 +2,6 @@ package com.levi9.lbnnative.receiver
 
 import android.Manifest
 import android.app.Notification
-import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -21,7 +20,6 @@ import java.util.Random
 class GeofenceBroadcastReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
-        Log.e("===", "Triggered!")
         val geofencingEvent = GeofencingEvent.fromIntent(intent)
         if (geofencingEvent != null && geofencingEvent.hasError()) {
             val errorMessage = GeofenceStatusCodes.getStatusCodeString(geofencingEvent.errorCode)
@@ -29,48 +27,29 @@ class GeofenceBroadcastReceiver : BroadcastReceiver() {
             return
         }
 
-        //#################################################
-        // 1. get transition type
-        //#################################################
         val geofenceTransition = geofencingEvent?.geofenceTransition
 
-        //#################################################
-        // 2. take into account transitions of interest
-        //#################################################
         if (geofenceTransition == GEOFENCE_TRANSITION_ENTER
             || geofenceTransition == GEOFENCE_TRANSITION_EXIT
         ) {
-
-            //#################################################
-            // 3. get triggered geofence list
-            //#################################################
             val triggeringGeofenceList = geofencingEvent.triggeringGeofences
-
-            // Send notification and log the transition details.
             if (geofenceTransition == GEOFENCE_TRANSITION_ENTER) {
-                sendNotification("enter", context)
+                sendNotification("enter ${triggeringGeofenceList?.get(0)?.requestId}", context)
             } else {
-                sendNotification("exit", context)
+                sendNotification("exit ${triggeringGeofenceList?.get(0)?.requestId}", context)
             }
         }
     }
 
     private fun sendNotification(notificationDetails: String, context: Context) {
-        val notificationIntent = Intent(Intent.ACTION_VIEW)
-        val pendingIntent = PendingIntent.getActivity(
-            context,
-            0,
-            notificationIntent,
-            PendingIntent.FLAG_MUTABLE
-        )
         val builder = NotificationCompat.Builder(context, NOTIFICATION_CHANNEL_ID)
         builder.setColor(Notification.COLOR_DEFAULT)
             .setContentTitle(notificationDetails)
-            .setContentText("Click notification to remove")
-            .setContentIntent(pendingIntent)
+            .setContentText("Example notification")
             .setDefaults(Notification.DEFAULT_SOUND)
             .setSmallIcon(R.mipmap.ic_launcher)
             .setAutoCancel(true)
+
         val notificationManager = NotificationManagerCompat.from(context)
         if (ActivityCompat.checkSelfPermission(
                 context,
@@ -80,7 +59,6 @@ class GeofenceBroadcastReceiver : BroadcastReceiver() {
             Log.e("===", "Permission not granted")
             return
         }
-        Log.e("===", "Permission granted")
         notificationManager.notify(Random().nextInt(), builder.build())
     }
 
