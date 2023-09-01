@@ -45,7 +45,7 @@ class GeofenceBroadcastReceiver : BroadcastReceiver() {
         val builder = NotificationCompat.Builder(context, NOTIFICATION_CHANNEL_ID)
         builder.setColor(Notification.COLOR_DEFAULT)
             .setContentTitle(notificationDetails)
-            .setContentText("Example notification")
+            .setContentText("Lifetime offer you cannot miss")
             .setDefaults(Notification.DEFAULT_SOUND)
             .setSmallIcon(R.mipmap.ic_launcher)
             .setAutoCancel(true)
