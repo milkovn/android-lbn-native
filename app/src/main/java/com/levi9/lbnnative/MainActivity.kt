@@ -137,7 +137,7 @@ class MainActivity : AppCompatActivity() {
     private fun fillGeofenceList() {
         geofenceList.add(
             Geofence.Builder()
-                .setRequestId("SOME_ID_1")
+                .setRequestId("geofenceID1")
                 .setCircularRegion(
                     45.2569469,
                     19.844466,
