@@ -89,16 +89,31 @@ class MainActivity : AppCompatActivity() {
         val view = binding.root
         setContentView(view)
 
+        // in order for notifications to be sent from the app and appear to the user, we need
+        // a notification channel when targeting Android 8.0 (API 26) and above
         createNotificationChannel()
 
+        // retrieve fused location client which contains Location APIs used for location tracking
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
+        // retrieve geofencing client, the main entry point for interacting with geofencing
         geofencingClient = LocationServices.getGeofencingClient(this)
 
+        // create a list of tracked geofences
+        // each Geofence has:
+        // id,
+        // circular region (lat, long),
+        // expiration duration,
+        // loitering time (time user has to stay in geofence before receiving a DWELL event),
+        // notification responsiveness (time after which user is notified when condition is met - enter, exit, dwell) (However, setting a very small responsiveness value, for example 5 seconds, doesn't necessarily mean you will get notified right after the user enters or exits a geofence: internally, the geofence might adjust the responsiveness value to save power when needed. Customer reported it as an issue)
+        // transition type (enter, exit dwell)
         fillGeofenceList()
 
+        // create geofencing request which connects initial trigger and list of tracked geofences
         geofencingRequest = retrieveGeofencingRequest()
+        // create pending intent which activates broadcast receiver when trigger happens
         pendingIntent = getGeofencePendingIntent()
 
+        // apps targeting Android 13 (API 33) or above require GRANTED notification runtime permission
         handleNotificationsPermission()
 
         handleLocationUpdates()
@@ -139,8 +154,8 @@ class MainActivity : AppCompatActivity() {
             Geofence.Builder()
                 .setRequestId("geofenceID1")
                 .setCircularRegion(
-                    45.2569469,
-                    19.844466,
+                    45.2662652,
+                    19.8453745,
                     200F
                 )
                 .setExpirationDuration(Geofence.NEVER_EXPIRE)
