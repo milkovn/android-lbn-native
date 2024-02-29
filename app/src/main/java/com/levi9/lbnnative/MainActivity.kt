@@ -101,7 +101,7 @@ class MainActivity : AppCompatActivity() {
         // create a list of tracked geofences
         // each Geofence has:
         // id,
-        // circular region (lat, long),
+        // circular region (lat, long, radius),
         // expiration duration,
         // loitering time (time user has to stay in geofence before receiving a DWELL event),
         // notification responsiveness (time after which user is notified when condition is met - enter, exit, dwell) (However, setting a very small responsiveness value, for example 5 seconds, doesn't necessarily mean you will get notified right after the user enters or exits a geofence: internally, the geofence might adjust the responsiveness value to save power when needed. Customer reported it as an issue)
@@ -114,8 +114,12 @@ class MainActivity : AppCompatActivity() {
         pendingIntent = getGeofencePendingIntent()
 
         // apps targeting Android 13 (API 33) or above require GRANTED notification runtime permission
+        // * if notification permission condition is fulfilled, request location permission
+        // * if notification and location permissions are GRANTED, we are registering for geofence event
+        //   listening in method startListeningForGeoFences()
         handleNotificationsPermission()
 
+        // for demo purposes we are listening for location updates
         handleLocationUpdates()
     }
 
